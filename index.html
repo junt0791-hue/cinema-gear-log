@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>CineCam Archives</title>
+    <style>
+        body { background: #fff; color: #000; font-family: 'Courier New', monospace; padding: 20px; }
+        .container { max-width: 800px; margin: auto; }
+        header { border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        input, select { padding: 10px; border: 1px solid #000; box-sizing: border-box; }
+        .grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        .card { border: 1px solid #000; padding: 15px; cursor: pointer; }
+        .card:hover { background: #000; color: #fff; }
+        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; padding: 50px; display: none; overflow-y: auto; }
+        .add-box { border: 2px dashed #000; padding: 20px; margin-top: 40px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>CINE-ARCHIVE</h1>
+        <select id="langSelect" onchange="render()">
+            <option value="zh">中文</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+        </select>
+    </header>
+    
+    <input type="text" id="search" style="width:100%" placeholder="Search/搜索/検索..." oninput="render()">
+    
+    <div class="grid" id="main"></div>
+
+    <div class="add-box">
+        <h3>添加新机型</h3>
+        <input type="text" id="new-name" placeholder="机型名称">
+        <textarea id="new-desc" placeholder="经典作品与解析..." style="width:100%; height:80px;"></textarea>
+        <button onclick="addData()">确认添加</button>
+    </div>
+</div>
+
+<div id="modal">
+    <button onclick="document.getElementById('modal').style.display='none'">[CLOSE]</button>
+    <h2 id="m-title"></h2>
+    <p id="m-desc" style="white-space: pre-line; line-height: 1.6;"></p>
+</div>
+
+<script>
+    let data = [
+        { name: "Arriflex 35 IIC", desc: { zh: "经典作品：\n《黄金三镖客》、《西部往事》、《逍遥骑士》", en: "Classic films:\n'The Good, the Bad and the Ugly', 'Once Upon a Time in the West', 'Easy Rider'", ja: "代表作:\n「続・夕陽のガンマン」、「ウエスタン」、「イージー・ライダー」" } },
+        { name: "Arriflex 435", desc: { zh: "经典作品：\n《黑客帝国》、《拯救大兵瑞恩》、《角斗士》", en: "Classic films:\n'The Matrix', 'Saving Private Ryan', 'Gladiator'", ja: "代表作:\n「マトリックス」、「プライベート・ライアン」、「グラディエーター」" } },
+        { name: "Arriflex 535B", desc: { zh: "经典作品：\n《泰坦尼克号》、《勇敢的心》、《角斗士》", en: "Classic films:\n'Titanic', 'Braveheart', 'Gladiator'", ja: "代表作:\n「タイタニック」、「ブレイブハート」、「グラディエーター」" } },
+        { name: "Arricam LT", desc: { zh: "经典作品：\n《蝙蝠侠：黑暗骑士》、《哈利·波特与混血王子》、《皇家赌场》", en: "Classic films:\n'The Dark Knight', 'Harry Potter and the Half-Blood Prince', 'Casino Royale'", ja: "代表作:\n「ダークナイト」、「ハリー・ポッターと謎のプリンス」、「007 カジノ・ロワイヤル」" } },
+        { name: "Arricam ST", desc: { zh: "经典作品：\n《致命魔术》、《蝙蝠侠：侠影之谜》、《达芬奇密码》", en: "Classic films:\n'The Prestige', 'Batman Begins', 'The Da Vinci Code'", ja: "代表作:\n「プレステージ」、「バットマン ビギンズ」、「ダ・ヴィンチ・コード」" } },
+        { name: "Panaflex Gold", desc: { zh: "经典作品：\n《回到未来》、《虎胆龙威》、《捉鬼敢死队》", en: "Classic films:\n'Back to the Future', 'Die Hard', 'Ghostbusters'", ja: "代表作:\n「バック・トゥ・ザ・フューチャー」、「ダイ・ハード」、「ゴーストバスターズ」" } },
+        { name: "Millennium XL2", desc: { zh: "经典作品：\n《盗梦空间》、《星际穿越》、《007：大破天幕杀机》", en: "Classic films:\n'Inception', 'Interstellar', 'Skyfall'", ja: "代表作:\n「インセプション」、「インターステラー」、「007 スカイフォール」" } },
+        { name: "Panavision Platinum", desc: { zh: "经典作品：\n《肖申克的救赎》、《阿甘正传》、《勇敢的心》", en: "Classic films:\n'The Shawshank Redemption', 'Forrest Gump', 'Braveheart'", ja: "代表作:\n「ショーシャンクの空に」、「フォレスト・ガンプ」、「ブレイブハート」" } },
+        { name: "Panavision System 65", desc: { zh: "经典作品：\n《大地雄心》、《哈姆雷特（1996）》", en: "Classic films:\n'Far and Away', 'Hamlet (1996)'", ja: "代表作:\n「遥かなる大地へ」、「ハムレット（1996）」" } },
+        { name: "Aaton Penelope", desc: { zh: "经典作品：\n《艺术家》、《触不可及》", en: "Classic films:\n'The Artist', 'The Intouchables'", ja: "代表作:\n「アーティスト」、「最強のふたり」" } },
+        { name: "Aaton XTR Prod", desc: { zh: "经典作品：\n《走钢丝的人》、《迁徙的鸟》", en: "Classic films:\n'Man on Wire', 'Winged Migration'", ja: "代表作:\n「マン・オン・ワイヤー」、「WATARIDORI」" } },
+        { name: "Moviecam Compact", desc: { zh: "经典作品：\n《大开眼戒》、《黑客帝国》、《拯救大兵瑞恩》", en: "Classic films:\n'Eyes Wide Shut', 'The Matrix', 'Saving Private Ryan'", ja: "代表作:\n「アイズ ワイド シャット」、「マトリックス」、「プライベート・ライアン」" } },
+        { name: "Moviecam SL", desc: { zh: "经典作品：\n《钢琴家》、《黑鹰坠落》", en: "Classic films:\n'The Pianist', 'Black Hawk Down'", ja: "代表作:\n「戦場のピアニスト」、「ブラックホーク・ダウン」" } },
+        { name: "Mitchell BNC", desc: { zh: "经典作品：\n《卡萨布兰卡》、《乱世佳人》、《公民凯恩》", en: "Classic films:\n'Casablanca', 'Gone with the Wind', 'Citizen Kane'", ja: "代表作:\n「カサブランカ」、「風と共に去りぬ」、「市民ケーン」" } },
+        { name: "Bell & Howell Eyemo", desc: { zh: "经典作品：\n《现代启示录》、《最长的一天》", en: "Classic films:\n'Apocalypse Now', 'The Longest Day'", ja: "代表作:\n「地獄の黙示録」、「史上最大の作戦」" } },
+        { name: "ARRI ALEXA Classic", desc: { zh: "经典作品：\n《007：大破天幕杀机》、《地心引力》、《囚徒》", en: "Classic films:\n'Skyfall', 'Gravity', 'Prisoners'", ja: "代表作:\n「007 スカイフォール」、「ゼロ・グラビティ」、「プリズナーズ」" } },
+        { name: "ARRI ALEXA LF", desc: { zh: "经典作品：\n《1917》、《婚姻故事》", en: "Classic films:\n'1917', 'Marriage Story'", ja: "代表作:\n「1917 命をかけた伝令」、「マリッジ・ストーリー」" } },
+        { name: "ARRI ALEXA Mini LF", desc: { zh: "经典作品：\n《新蝙蝠侠》、《壮志凌云2：独行侠》、《沙丘2》", en: "Classic films:\n'The Batman', 'Top Gun: Maverick', 'Dune: Part Two'", ja: "代表作:\n「THE BATMAN-ザ・バットマン-」、「トップガン マーヴェリック」、「デューン 砂の惑星 PART2」" } },
+        { name: "ARRI ALEXA 35", desc: { zh: "经典作品：\n《美国内战》、《疯狂的麦克斯：狂暴女神》", en: "Classic films:\n'Civil War', 'Furiosa: A Mad Max Saga'", ja: "代表作:\n「シビル・ウォー アメリカ最後の日」、「マッドマックス：フュリオサ」" } },
+        { name: "ARRI ALEXA 65", desc: { zh: "经典作品：\n《荒野猎人》、《星球大战外传：侠盗一号》、《小丑》", en: "Classic films:\n'The Revenant', 'Rogue One: A Star Wars Story', 'Joker'", ja: "代表作:\n「レヴェナント: 蘇えりし者」、「ローグ・ワン」、「ジョーカー」" } },
+        { name: "RED ONE", desc: { zh: "经典作品：\n《第九区》、《社交网络》", en: "Classic films:\n'District 9', 'The Social Network'", ja: "代表作:\n「第9地区」、「ソーシャル・ネットワーク」" } },
+        { name: "RED EPIC Dragon", desc: { zh: "经典作品：\n《霍比特人：五军之战》、《消失的爱人》", en: "Classic films:\n'The Hobbit: The Battle of the Five Armies', 'Gone Girl'", ja: "代表作:\n「ホビット 決戦のゆくえ」、「ゴーン・ガール」" } },
+        { name: "RED WEAPON 8K", desc: { zh: "经典作品：\n《银河护卫队2》、《死侍2》", en: "Classic films:\n'Guardians of the Galaxy Vol. 2', 'Deadpool 2'", ja: "代表作:\n「ガーディアンズ・オブ・ギャラクシー:リミックス」、「デッドプール2」" } },
+        { name: "RED V-RAPTOR 8K VV", desc: { zh: "经典作品：\n《造物主》、《疾速追杀4》", en: "Classic films:\n'The Creator', 'John Wick: Chapter 4'", ja: "代表作:\n「ザ・クリエイター／創造者」、「ジョン・ウィック:コンセクエンス」" } },
+        { name: "Sony CineAlta F35", desc: { zh: "经典作品：\n《遗落战境》、《创：战纪》", en: "Classic films:\n'Oblivion', 'TRON: Legacy'", ja: "代表作:\n「オブリビオン」、「トロン: レガシー」" } },
+        { name: "Sony VENICE", desc: { zh: "经典作品：\n《壮志凌云2：独行侠》、《阿凡达：水之道》、《猫王》", en: "Classic films:\n'Top Gun: Maverick', 'Avatar: The Way of Water', 'Elvis'", ja: "代表作:\n「トップガン マーヴェリック」、「アバター：ウェイ・オブ・ウォーター」、「エルヴィス」" } },
+        { name: "Sony VENICE 2", desc: { zh: "经典作品：\n《沙丘2》、《角斗士2》、《阿凡达：火与烬》", en: "Classic films:\n'Dune: Part Two', 'Gladiator II', 'Avatar: Fire and Ash'", ja: "代表作:\n「デューン 砂の惑星 PART2」、「グラディエーターII」、「アバター：ファイアー・アンド・アッシュ」" } },
+        { name: "Sony FS7", desc: { zh: "经典作品：\n《徒手攀岩》、《最后的舞动》", en: "Classic films:\n'Free Solo', 'The Last Dance'", ja: "代表作:\n「フリーソロ」、「マイケル・ジョーダン: ラストダンス」" } },
+        { name: "Sony FX6", desc: { zh: "经典作品：\n《欢迎来到雷克瑟姆》、大量Netflix纪录片", en: "Classic films:\n'Welcome to Wrexham', many Netflix documentaries", ja: "代表作:\n「ウェルカム・トゥ・レクサム」、Netflixドキュメンタリー多数" } },
+        { name: "Canon C300 Mark III", desc: { zh: "经典作品：\n《徒手攀岩》(补机位)、《泰勒·斯威夫特：时代巡回演唱会》", en: "Classic films:\n'Free Solo' (B-roll), 'Taylor Swift: The Eras Tour'", ja: "代表作:\n「フリーソロ」（補足撮影）、「テイラー・スウィフト: THE ERAS TOUR」" } },
+        { name: "Canon C500 Mark II", desc: { zh: "经典作品：\n《蓝色海湾》", en: "Classic films:\n'Blue Bayou'", ja: "代表作:\n「ブルー・バイユー」" } },
+        { name: "Panasonic EVA1", desc: { zh: "经典作品：\n《徒手攀岩》(部分机位)", en: "Classic films:\n'Free Solo' (additional)", ja: "代表作:\n「フリーソロ」（一部撮影）" } },
+        { name: "URSA Mini Pro 12K", desc: { zh: "经典作品：\n《一切都会好的》、大量广告与MV", en: "Classic films:\n'Everything Will Be Alright', many commercials and music videos", ja: "代表作:\n「Everything Will Be Alright」、広告・ミュージックビデオ多数" } },
+        { name: "Sony FX30", desc: { zh: "经典作品：\nSundance短片大量使用", en: "Classic films:\nFrequently used in Sundance short films", ja: "代表作:\nサンダンス映画祭短編作品で多用" } },
+        { name: "Sony FX3", desc: { zh: "经典作品：\n《创作者》(部分镜头)、《菜单》", en: "Classic films:\n'The Creator' (some shots), 'The Menu'", ja: "代表作:\n「ザ・クリエイター」（一部ショット）、「ザ・メニュー」" } },
+        { name: "Canon C70", desc: { zh: "经典作品：\nNetflix纪录片、Disney+纪录片", en: "Classic films:\nNetflix and Disney+ documentaries", ja: "代表作:\nNetflixおよびDisney+ドキュメンタリー作品" } },
+        { name: "Canon C200", desc: { zh: "经典作品：\n《蓝色海湾》、《美国工厂》", en: "Classic films:\n'Blue Bayou', 'American Factory'", ja: "代表作:\n「ブルー・バイユー」、「アメリカン・ファクトリー」" } },
+        { name: "Canon C100 Mark II", desc: { zh: "经典作品：\n《橘色》、《塔米·菲的眼睛》", en: "Classic films:\n'Tangerine', 'The Eyes of Tammy Faye'", ja: "代表作:\n「タンジェリン」、「タミー・フェイの瞳」" } },
+        { name: "BMPCC 6K", desc: { zh: "经典作品：\nSundance独立电影大量使用", en: "Classic films:\nWidely used in Sundance independent films", ja: "代表作:\nサンダンス映画祭インディペンデント作品で多用" } },
+        { name: "BMPCC 6K Pro", desc: { zh: "经典作品：\nSXSW电影节短片大量使用", en: "Classic films:\nWidely used in SXSW festival short films", ja: "代表作:\nSXSW映画祭短編作品で多用" } },
+        { name: "Sony A7 III", desc: { zh: "经典作品：\n《夜班服务员》、大量独立电影", en: "Classic films:\n'The Night Clerk', various independent films", ja: "代表作:\n「ザ・ナイト・クラーク」、インディペンデント映画多数" } },
+        { name: "Sony A7S II", desc: { zh: "经典作品：\n《曼蒂》、《升级》", en: "Classic films:\n'Mandy', 'Upgrade'", ja: "代表作:\n「マンディ」、「アップグレード」" } },
+        { name: "Panasonic GH4", desc: { zh: "经典作品：\n《橘色》", en: "Classic films:\n'Tangerine'", ja: "代表作:\n「タンジェリン」" } },
+        { name: "Panasonic GH5", desc: { zh: "经典作品：\n《寻找小糖人》(后期补拍)、大量纪录片", en: "Classic films:\n'Searching for Sugar Man' (pickups), many documentaries", ja: "代表作:\n「シュガーマン 奇跡に愛された男」（補足撮影）、ドキュメンタリー多数" } },
+        { name: "Canon 5D Mark III", desc: { zh: "经典作品：\n《爱疯了》、《勇者行动》", en: "Classic films:\n'Like Crazy', 'Act of Valor'", ja: "代表作:\n「ライク・クレイジー」、「ネイビーシールズ」" } },
+        { name: "Canon 6D", desc: { zh: "经典作品：\n独立电影圈广泛使用", en: "Classic films:\nWidely used in independent film circles", ja: "代表作:\nインディペンデント映画界で広く使用" } },
+        { name: "Canon 70D", desc: { zh: "经典作品：\nYouTube剧情短片时代代表机型", en: "Classic films:\nRepresentative of the YouTube narrative short film era", ja: "代表作:\nYouTubeドラマ短編時代の代表機" } },
+        { name: "BMPCC 4K", desc: { zh: "经典作品：\nSundance青年导演作品及SXSW短片大量使用", en: "Classic films:\nUsed extensively in Sundance young directors' works and SXSW shorts", ja: "代表作:\nサンダンス映画祭新人監督作品やSXSW短編で多用" } }
+    ];
+
+    function render() {
+        const query = document.getElementById('search').value.toLowerCase();
+        const main = document.getElementById('main');
+        const lang = document.getElementById('langSelect').value;
+        main.innerHTML = "";
+        
+        data.filter(i => i.name.toLowerCase().includes(query)).forEach((item, i) => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.innerHTML = `<h3>${item.name}</h3>`;
+            div.onclick = () => {
+                document.getElementById('modal').style.display = 'block';
+                document.getElementById('m-title').innerText = item.name;
+                document.getElementById('m-desc').innerText = item.desc[lang];
+            };
+            main.appendChild(div);
+        });
+    }
+
+    function addData() {
+        const name = document.getElementById('new-name').value;
+        const descText = document.getElementById('new-desc').value;
+        if(name && descText) {
+            data.push({name, desc: {zh: descText, en: descText, ja: descText}});
+            render();
+            document.getElementById('new-name').value = "";
+            document.getElementById('new-desc').value = "";
+        }
+    }
+
+    render();
+</script>
+</body>
+</html> 
